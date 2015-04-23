@@ -13,7 +13,7 @@ class CplexModel(cplex.Cplex):
         matrix = np.array(np.fromfunction(np.vectorize(ijstr), shape))
 
         names = [str(e) for e in matrix.flatten().tolist()]
-        nvars = len(self._idx)+1
+        nvars = len(self._idx)
         ntup = zip(names, range(nvars, nvars + len(names)))
         self._idx.update({k:v for k,v in ntup})
 
