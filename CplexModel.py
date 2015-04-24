@@ -5,9 +5,15 @@ import cplex
 class CplexModel(cplex.Cplex):
     def __init__(self):
         cplex.Cplex.__init__(self)
-        self._idx = {}
+        self._idx = {} # name index
+        self._shape = {} # variable index
 
     def var(self, name, shape, lower_bound, upper_bound, vtype, obj):
+        if name in self._shape.keys():
+            raise("Variable with name {} already added".format(name))
+        else:
+            self._shape[name] = shape
+
         #FIXME: this should reference species name, not index
         ijstr = lambda i,j: sympy.Symbol(name+"_{"+str(int(i))+","+str(int(j))+"}")
         matrix = np.array(np.fromfunction(np.vectorize(ijstr), shape))
@@ -52,13 +58,22 @@ class CplexModel(cplex.Cplex):
         self.parameters.threads.set(threads)
         self.parameters.mip.limits.populate.set(int(number_solutions))
         self.parameters.mip.pool.absgap.set(absgap)
-        self.parameters.mip.pool.intensity=intensity
-        self.parameters.mip.pool.replace=replace
+        self.parameters.mip.pool.intensity = intensity
+        self.parameters.mip.pool.replace = replace
         self.parameters.mip.tolerances.mipgap.set(float(mipgap))
         self.parameters.timelimit.set(float(timelimit))
 
         # delegate call to parent class method
         cplex.Cplex.solve(self)
+        self.populate_solution_pool()
 
-    def getSolution(self):
-        pass
+    def get_solution(self, num=0):
+        sol = self.solution.pool.get_values(num)
+        solDict = {}
+        for name,shape in self._shape.items():
+            solDict[name] = np.empty(shape, dtype='int8')
+            ijstr = lambda i,j: name+"_{"+str(int(i))+","+str(int(j))+"}"
+            for i in range(shape[0]):
+                for j in range(shape[1]):
+                    solDict[name][i,j] = sol[self._idx[ijstr(i,j)]]
+        return solDict
