@@ -4,17 +4,40 @@ import cplex
 
 class CplexModel(cplex.Cplex):
     def __init__(self):
+        """Initializes the model
+
+        In addition, creates empty class-internal dictionaries to look up variable
+        names to their index in the CPlex model (`self._idx`) and shape (`self._shape`).
+        """
         cplex.Cplex.__init__(self)
         self._idx = {} # name index
         self._shape = {} # variable index
 
     def var(self, name, shape, lower_bound, upper_bound, vtype, obj):
+        """Add a variable to the model
+
+        This method will create a matrix with dimensions `shape` that is filled
+        with SymPy symbols of name `name_{i,j}`, where `i` and `j` are indices
+        along the rows and columns, respectively. This is the return value.
+
+        It will also create convert CPlex-structured variables for the names,
+        upper- and lower bounds, types, and **obj? and add them to the CPlex model
+        it is derived from.
+
+        name -- The name of the variable; will be indexed as "name_{i,j}"
+        shape -- A tuple with the dimension lengths [rows x columns]
+        lower_bound -- The lower value limit a variable can take
+        upper_bound -- The upper value limit a variable can take
+        vtype -- Type of the variable; 'I' integer, 'B' binary; 'C' count (I>=0)
+        obj --
+        return -- A numpy matrix with shape `shape` filled with SymPy symbols `name_{i,j}`
+        """
         if name in self._shape.keys():
             raise("Variable with name {} already added".format(name))
         else:
             self._shape[name] = shape
 
-        #FIXME: this should reference species name, not index
+        #TODO: this should reference species name, not index
         ijstr = lambda i,j: sympy.Symbol(name+"_{"+str(int(i))+","+str(int(j))+"}")
         matrix = np.array(np.fromfunction(np.vectorize(ijstr), shape))
 
@@ -34,6 +57,22 @@ class CplexModel(cplex.Cplex):
         return np.matrix(matrix)
 
     def constrain(self, expr, compare, rhs):
+        """ Method to add linear constraints to the model
+
+        Consider the equation `x + y < 3`. `expr` is `x + y`, `compare` is the
+        comparison operator `<`, and `3` is the `rhs`.
+
+        If `rhs` is scalar but the expression is vector-valued, it will be
+        interpreted that every value of the vector has to be true for `rhs`.
+
+        expr -- A mathematical expression containing coefficients and variables
+                created using the `var()` method
+        compare -- 'G', 'L', 'E', for greater, less than, or equal, respectively
+        rhs -- The integer value of the right-hand side of the equation
+        """
+        if compare not in ['G', 'L', 'E']:
+            raise("Invalid comparison operator: only 'G', 'L', and 'E'")
+
         cons = {}
         exprs = np.array(expr).flatten().tolist() #if e != 0]
         cons['lin_expr'] = [self._expr2list(e) for e in exprs]
@@ -48,6 +87,12 @@ class CplexModel(cplex.Cplex):
 #        return cons # debug
 
     def _expr2list(self, expr):
+        """Helper function to extract variables and coefficients from an expression
+
+        expr -- An expression defined by coefficients and SymPy variables
+        return -- A list consisting of two elements: the index a variable has in
+                  the model, and its coefficient in the expression
+        """
         var = list(expr.atoms(sympy.Symbol))
         coeff = [int(expr.coeff(v)) for v in var]
         var_index = [self._idx[str(v)] for v in var]
