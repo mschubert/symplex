@@ -51,9 +51,14 @@ class CplexModel(cplex.Cplex):
         var['ub'] = [upper_bound] * matrix.size
         var['lb'] = [lower_bound] * matrix.size
         var['types'] = [vtype] * matrix.size
-        var['obj'] = [obj] * matrix.size
-        self.variables.add(**var)
 
+        if np.isscalar(obj):
+            var['obj'] = [obj] * matrix.size
+        else:
+            var['obj'] = np.array(obj).flatten().tolist()
+        #TODO: check if non-scalar args have the right length
+
+        self.variables.add(**var)
         return np.matrix(matrix)
 
     def constrain(self, expr, compare, rhs):
