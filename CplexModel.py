@@ -1,5 +1,5 @@
 import numpy as np
-import sympy
+import symengine as sympy
 import cplex
 
 class CplexModel(cplex.Cplex):
@@ -98,9 +98,19 @@ class CplexModel(cplex.Cplex):
         return -- A list consisting of two elements: the index a variable has in
                   the model, and its coefficient in the expression
         """
-        var = list(expr.atoms(sympy.Symbol))
-        coeff = [int(expr.coeff(v)) for v in var]
-        var_index = [self._idx[str(v)] for v in var]
+        coeff = []
+        var_index = []
+        for arg in expr.args: #FIXME: this is still slow, but not as bad
+            if isinstance(arg, sympy.Symbol):
+                coeff.append(1)
+                var_index.append(self._idx[str(arg)])
+            else:
+                coeff.append(int(arg.args[0]))
+                var_index.append(self._idx[str(arg.args[1])])
+
+#        var = list(expr.atoms(sympy.Symbol))
+#        coeff = [int(expr.coeff(v)) for v in var] #FIXME: this is too slow
+#        var_index = [self._idx[str(v)] for v in var]
         return [var_index, coeff]
 
     def solve(self, threads=1, number_solutions=1, absgap=0.0,
